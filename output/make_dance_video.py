@@ -13,7 +13,9 @@ else:
 KEY = os.environ["POSE"]; e = env(P[KEY]); fr = P[KEY]["fps"]; t = np.arange(len(e)) / fr; dur = t[-1]
 best = None
 for T in np.arange(BPM * 0.97, BPM * 1.03, 0.1):
-    bt = 60 / T; n = 4 * int(np.ceil(15 / (4 * bt))); ph = np.arange(0, bt, 1 / 96)[:, None]
+    bt = 60 / T; n = 4 * int(np.ceil(15 / (4 * bt)))
+    if (n + 1) * bt > dur - 0.1: n = 2 * int(np.ceil(15 / (2 * bt)))   # half bars when whole bars don't fit
+    ph = np.arange(0, bt, 1 / 96)[:, None]
     for w0 in np.arange(0.0, dur - (n + 1) * bt - 0.05, 0.125):
         m = (t >= w0) & (t < w0 + n * bt); ee = e[m] - e[m].mean(); tt = t[m]
         dd = ((tt[None, :] - ph) / bt) % 1; dd = np.minimum(dd, 1 - dd) * bt

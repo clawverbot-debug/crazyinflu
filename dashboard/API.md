@@ -31,6 +31,25 @@ Example:
 curl -H "Authorization: Bearer $(cat ~/.config/viral-spy/api_key)" https://character-lab-research.netlify.app/api/v1/characters/otto
 ```
 
+## Generation for the team (write, paid with the owner's credits)
+
+| Call | Does |
+|---|---|
+| `POST /api/v1/generate/image` `{prompt, ref_urls?, aspect_ratio?, resolution?}` | GPT Image 2 through kie.ai. Text only, or 1 to 4 https reference images to keep a character exact. Returns `task_id`. |
+| `GET /api/v1/generate/image/:task_id` | `state` (waiting, generating, success, fail) and `urls` |
+| `POST /api/v1/scan` `{hashtags: [...], per_tag?}` | Apify Instagram scan of recent reels, up to 12 hashtags and 5 to 30 reels each. Each run is capped at $2, and the scan is refused once the month reaches `RADAR_MAX_USD`. Returns `scan_id`. |
+| `GET /api/v1/scan/:scan_id?max_age_hours=72` | Reels ranked by views per hour (URL, video, views, age, caption) |
+| `GET /api/v1/usage` | What you used today, your quotas and your recent actions |
+
+**Keys.**
+- Each collaborator gets their own key: the owner runs `python3 collab_key.py add <name>`, which stores the keys in the Netlify variable `API_KEYS`.
+- Calls are logged with the person's name.
+- Default quotas per person per day: 40 images (`GEN_IMG_DAILY`) and 3 scans (`GEN_SCAN_DAILY`). The owner key has no quota.
+
+**Higgsfield videos are not available through this API.** Higgsfield has no API key, only a personal login. To share video generation, add collaborators to the owner's Higgsfield team workspace; they then generate with their own login on the shared credits.
+
+MCP tools: `generate_image`, `get_image`, `start_scan`, `get_scan`, `my_usage`.
+
 ## Logging posts (write)
 
 `POST /api/v1/posts` with JSON `{account, video_4k, reel_url, caption, posted_at, trial_reel, phone}`.
@@ -42,7 +61,7 @@ curl -H "Authorization: Bearer $(cat ~/.config/viral-spy/api_key)" https://chara
 
 Endpoint: `POST https://character-lab-research.netlify.app/mcp`. It speaks Streamable HTTP with JSON-RPC 2.0 and handles `initialize`, `tools/list`, `tools/call` and `ping`.
 
-The 11 tools are:
+The 16 tools are:
 - `list_characters`
 - `get_character`
 - `list_videos`

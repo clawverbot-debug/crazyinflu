@@ -7,18 +7,22 @@
 import { getStore } from "@netlify/blobs";
 import { timingSafeEqual } from "node:crypto";
 import { KNOWLEDGE_MD } from "../lib/knowledge.mjs";
+import { generateImage, imageStatus, startScan, scanStatus, usage } from "../lib/gen.mjs";
 
 export const config = { path: ["/api/v1", "/api/v1/*", "/mcp"] };
 
 const SITE = "https://character-lab-research.netlify.app";
 const json = (o, s = 200) => new Response(JSON.stringify(o, null, 1), { status: s, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
 
+// Returns who is calling: "owner" (API_KEY) or a collaborator name (API_KEYS = JSON {"name": "key"}); false if wrong; null if not configured.
 function authorized(req) {
-  const key = process.env.API_KEY;
-  if (!key || key.length < 24) return null; // not configured → refuse everything
-  const got = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "") || req.headers.get("x-api-key") || "";
-  const a = Buffer.from(got), b = Buffer.from(key);
-  return a.length === b.length && timingSafeEqual(a, b);
+  const keys = {};
+  if (process.env.API_KEY && process.env.API_KEY.length >= 24) keys.owner = process.env.API_KEY;
+  try { for (const [n, k] of Object.entries(JSON.parse(process.env.API_KEYS || "{}"))) if (typeof k === "string" && k.length >= 24 && /^[a-z0-9_-]{1,30}$/.test(n)) keys[n] = k; } catch (e) {}
+  if (!Object.keys(keys).length) return null; // not configured → refuse everything
+  const got = Buffer.from((req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "") || req.headers.get("x-api-key") || "");
+  for (const [who, k] of Object.entries(keys)) { const b = Buffer.from(k); if (got.length === b.length && timingSafeEqual(got, b)) return who; }
+  return false;
 }
 
 let cache = null;
@@ -183,12 +187,19 @@ const TOOLS = [
     inputSchema: { type: "object", required: ["account"], properties: { account: { type: "string", description: "Instagram handle" }, video_4k: { type: "string", description: "the video_4k URL that was posted" },
       reel_url: { type: "string", description: "URL of the published reel" }, caption: { type: "string" }, posted_at: { type: "string", description: "ISO date, default now" }, trial_reel: { type: "boolean" }, phone: { type: "string" } } } },
   { name: "list_posts", description: "Posts logged by the posting tool (optionally for one account).", inputSchema: { type: "object", properties: { account: { type: "string" } } } },
+  { name: "generate_image", description: "Generate an image with GPT Image 2 (paid with the team's kie.ai credits). Text only, or with 1-4 reference image URLs (https) to keep a character exact. Returns a task_id; then call get_image.",
+    inputSchema: { type: "object", required: ["prompt"], properties: { prompt: { type: "string" }, ref_urls: { type: "array", items: { type: "string" } }, aspect_ratio: { type: "string", enum: ["9:16", "1:1", "16:9", "3:4", "4:3"] }, resolution: { type: "string", enum: ["2K", "1K"] } } } },
+  { name: "get_image", description: "Status of an image task: state (waiting/generating/success/fail) and the image URLs.", inputSchema: { type: "object", required: ["task_id"], properties: { task_id: { type: "string" } } } },
+  { name: "start_scan", description: "Start an Apify Instagram scan of recent reels for up to 12 hashtags (paid with the team's Apify credits, capped per run and by the monthly budget). Returns a scan_id; then call get_scan.",
+    inputSchema: { type: "object", required: ["hashtags"], properties: { hashtags: { type: "array", items: { type: "string" } }, per_tag: { type: "number", description: "reels per hashtag, 5-30 (default 20)" } } } },
+  { name: "get_scan", description: "Results of a scan: reels ranked by views per hour (with video URL, views, age, caption), filtered to max_age_hours (default 72).", inputSchema: { type: "object", required: ["scan_id"], properties: { scan_id: { type: "string" }, max_age_hours: { type: "number" } } } },
+  { name: "my_usage", description: "What you generated today, your daily quotas and your recent actions.", inputSchema: { type: "object", properties: {} } },
   { name: "get_radar", description: "Live radar queue (clips scanned every 2 hours on TikTok and Instagram, ranked by velocity).", inputSchema: { type: "object", properties: {} } },
   { name: "get_insights", description: "Research data behind the system. Without 'block', returns the list of blocks (cadence, traits, scenes, honeymoon, tricks, wave, hitflop, accounts…). With 'block', returns that block.",
     inputSchema: { type: "object", properties: { block: { type: "string" } } } },
 ];
 
-async function callTool(name, a) {
+async function callTool(name, a = {}, who = "owner") {
   const D = await load();
   switch (name) {
     case "list_characters": return Q.characters(D, a);
@@ -199,6 +210,11 @@ async function callTool(name, a) {
     case "get_playbook": return { rules: PLAYBOOK, learned: await learnings(D), research: { honeymoon: Q.block(D, { block: "honeymoon" }), cadence: Q.block(D, { block: "cadence" }) } };
     case "get_schedule": return schedule(D, a.account);
     case "get_knowledge": return { markdown: KNOWLEDGE_MD };
+    case "generate_image": return generateImage(who, a);
+    case "get_image": return imageStatus(String(a.task_id || ""));
+    case "start_scan": return startScan(who, a);
+    case "get_scan": return scanStatus(String(a.scan_id || ""), a);
+    case "my_usage": return usage(who);
     case "log_post": return logPost(D, a);
     case "list_posts": return (await loggedPosts()).filter((p) => !a.account || p.account === String(a.account).replace(/^@/, "").toLowerCase());
     case "get_insights": return a.block ? (Q.block(D, a) ?? { error: `unknown block ${a.block}`, blocks: Q.blocks(D) }) : { blocks: Q.blocks(D) };
@@ -206,7 +222,7 @@ async function callTool(name, a) {
   }
 }
 
-async function mcp(req) {
+async function mcp(req, who = "owner") {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
   const msg = await req.json().catch(() => null);
   if (!msg) return json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } }, 400);
@@ -221,7 +237,7 @@ async function mcp(req) {
       else if (m.method === "ping") result = {};
       else if (m.method === "tools/list") result = { tools: TOOLS };
       else if (m.method === "tools/call") {
-        const r = await callTool(m.params?.name, m.params?.arguments || {});
+        const r = await callTool(m.params?.name, m.params?.arguments || {}, who);
         result = { content: [{ type: "text", text: JSON.stringify(r, null, 1) }], structuredContent: Array.isArray(r) ? { items: r } : r };
       } else throw { code: -32601, message: `unknown method ${m.method}` };
       out.push({ jsonrpc: "2.0", id: m.id, result });
@@ -232,12 +248,18 @@ async function mcp(req) {
 }
 
 export default async (req) => {
-  const ok = authorized(req);
-  if (ok === null) return json({ error: "API disabled: API_KEY is not configured" }, 503);
-  if (!ok) return json({ error: "missing or wrong API key" }, 401);
+  const who = authorized(req);
+  if (who === null) return json({ error: "API disabled: API_KEY is not configured" }, 503);
+  if (!who) return json({ error: "missing or wrong API key" }, 401);
   const url = new URL(req.url);
-  if (url.pathname === "/mcp") return mcp(req);
+  if (url.pathname === "/mcp") return mcp(req, who);
   const parts = url.pathname.replace(/^\/api\/v1\/?/, "").split("/").filter(Boolean);
+  const genWrap = async (fn) => { try { return json(await fn()); } catch (e) { return json({ error: e.message || String(e) }, e.status || 500); } };
+  if (req.method === "POST" && parts[0] === "generate" && parts[1] === "image") { const body = await req.json().catch(() => ({})); return genWrap(() => generateImage(who, body)); }
+  if (req.method === "POST" && parts[0] === "scan") { const body = await req.json().catch(() => ({})); return genWrap(() => startScan(who, body)); }
+  if (req.method === "GET" && parts[0] === "generate" && parts[1] === "image" && parts[2]) return genWrap(() => imageStatus(parts[2]));
+  if (req.method === "GET" && parts[0] === "scan" && parts[1]) return genWrap(() => scanStatus(parts[1], Object.fromEntries(url.searchParams)));
+  if (req.method === "GET" && parts[0] === "usage") return genWrap(() => usage(who));
   if (req.method === "POST" && parts[0] === "posts") {
     const body = await req.json().catch(() => null);
     if (!body) return json({ error: "JSON body required" }, 400);
