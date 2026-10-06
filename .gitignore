@@ -1,0 +1,19 @@
+# data, media and secrets are never committed
+*.json
+!package.json
+!hyperframes.json
+*.mp4
+*.mp3
+*.wav
+*.m4a
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.pt
+*.npz
+.env*
+.netlify/
+dist/
+node_modules/
+__pycache__/
