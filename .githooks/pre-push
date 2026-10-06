@@ -1,0 +1,4 @@
+#!/bin/sh
+# Before each push: same check, so you rebase on your teammates' work first.
+. "$(git rev-parse --show-toplevel)/.githooks/_check_remote.sh"
+check_remote push

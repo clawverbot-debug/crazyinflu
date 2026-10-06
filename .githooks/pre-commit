@@ -1,0 +1,4 @@
+#!/bin/sh
+# Before each commit: make sure nobody pushed something you haven't pulled.
+. "$(git rev-parse --show-toplevel)/.githooks/_check_remote.sh"
+check_remote commit

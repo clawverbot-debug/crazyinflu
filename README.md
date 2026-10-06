@@ -58,3 +58,11 @@ netlify deploy --dir dist --functions netlify/functions --prod --site character-
 ```
 
 The Netlify Blobs stores are `radar`, `pool` and `posts`. Use `consistency: "strong"` for writes; eventual consistency overwrote data before.
+
+## Working together (required once per collaborator)
+
+```bash
+sh scripts/install-hooks.sh
+```
+
+This turns on the shared git hooks in `.githooks/`. Before every `git commit` and `git push`, they fetch the remote and stop you if teammates pushed commits you don't have yet. The hook then tells you to run `git pull --rebase --autostash` first. Emergency bypass: `SKIP_PULL_CHECK=1 git commit …`.
