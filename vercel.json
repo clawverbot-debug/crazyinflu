@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "node dashboard/build_vercel.mjs",
+  "outputDirectory": "dashboard/vercel-dist",
+  "rewrites": [
+    { "source": "/data.json", "destination": "https://character-lab-research.netlify.app/data.json" },
+    { "source": "/characters.json", "destination": "https://character-lab-research.netlify.app/characters.json" },
+    { "source": "/img/:path*", "destination": "https://character-lab-research.netlify.app/img/:path*" },
+    { "source": "/clips/:path*", "destination": "https://character-lab-research.netlify.app/clips/:path*" },
+    { "source": "/api/:path*", "destination": "https://character-lab-research.netlify.app/api/:path*" },
+    { "source": "/mcp", "destination": "https://character-lab-research.netlify.app/mcp" }
+  ],
+  "headers": [
+    {
+      "source": "/api/:path*",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/mcp",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "no-store" }
+      ]
+    }
+  ]
+}

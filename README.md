@@ -9,7 +9,7 @@ This is the system behind the Prime Ads AI-character Instagram accounts. It cove
 - the dashboard, the radar, and tracking the accounts;
 - an API and MCP server for the posting tool.
 
-The live site is https://character-lab-research.netlify.app (Netlify site `character-lab-research`).
+The interface is live at https://crazyinflu.vercel.app. The original site and backend are at https://character-lab-research.netlify.app (Netlify site `character-lab-research`).
 
 ## Folder tree
 
@@ -51,6 +51,22 @@ The live site is https://character-lab-research.netlify.app (Netlify site `chara
 The local scripts read their keys from files outside the repo, in `~/.config/viral-spy/` and the `.env` of other projects. Ask Thibault; never commit keys.
 
 ## Deploy
+
+### Vercel interface
+
+The root `vercel.json` builds the current dashboard with
+`node dashboard/build_vercel.mjs` and publishes only `dashboard/vercel-dist`.
+It forwards public JSON, images, clips, API and MCP requests to the existing
+Netlify site. No provider keys or database migration are needed on Vercel.
+The Netlify backend and media must remain available. Browser-local preferences
+and saved keys are separate for each domain.
+
+The Vercel project is `crazyinflu` in `tanguycomptepro-4018s-projects`.
+Deploy from the repository root with `vercel deploy --prod` after linking to
+that project. Deployment currently uses the CLI; automatic GitHub deployment
+requires granting the Vercel GitHub integration access to this repository.
+
+### Existing Netlify backend
 
 ```bash
 cd dashboard && python3 build_data.py && node knowledge/build.mjs

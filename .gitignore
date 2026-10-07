@@ -2,6 +2,7 @@
 *.json
 !package.json
 !hyperframes.json
+!vercel.json
 *.mp4
 *.mp3
 *.wav
@@ -17,3 +18,5 @@
 dist/
 node_modules/
 __pycache__/
+.vercel/
+vercel-dist/
