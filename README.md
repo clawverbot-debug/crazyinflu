@@ -66,3 +66,36 @@ sh scripts/install-hooks.sh
 ```
 
 This turns on the shared git hooks in `.githooks/`. Before every `git commit` and `git push`, they fetch the remote and stop you if teammates pushed commits you don't have yet. The hook then tells you to run `git pull --rebase --autostash` first. Emergency bypass: `SKIP_PULL_CHECK=1 git commit …`.
+
+## UX validation
+
+The dashboard has five spaces (Characters, Videos, Sources, Accounts, Resources)
+and an optional four-step video assistant. Existing hash links remain supported.
+The assistant uses catalog characters and the existing generation connector;
+custom Lab characters are not automatically added to production. Posting stays manual.
+
+```bash
+cd dashboard
+npm install
+npx playwright install chromium
+npm run test:ux
+```
+
+The browser checks serve the current page with synthetic data, image placeholders
+and simulated provider responses. They exercise desktop/mobile navigation, legacy
+links, FR/EN, selection retention, generation failures, 4K, copying, downloads and
+unchanged character exports. No paid generation or real API mutation is performed.
+Screenshots go to the temporary `character-lab-ux-results` directory; set
+`UX_ARTIFACT_DIR` to choose another output directory. Real media/data are excluded
+from this repository, so these checks do not establish production provider readiness.
+
+### Local preview with real media
+
+Run `npm --prefix dashboard run preview`, then open `http://127.0.0.1:4176`.
+This serves the edited local interface with the public deployed data and direct
+links to the real character images, source thumbnails and existing videos.
+No placeholder media are substituted. An internet connection is required.
+The preview is read-only: Radar/account service requests and API mutations are
+not forwarded. Their GET endpoints can collect and persist provider jobs, so
+use the deployed site for operational work. Provider generation is not enabled
+by this local server.

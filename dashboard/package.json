@@ -4,5 +4,12 @@
   "type": "module",
   "dependencies": {
     "@netlify/blobs": "^8.1.0"
+  },
+  "scripts": {
+    "test:ux": "node tests/ux.cjs",
+    "preview": "python3 preview.py"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
   }
 }
